@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>PSD Darts</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <style>
+    body { background:#0a0a0a; color:white; font-family:Arial; margin:0; }
+
+    .header {
+      text-align:center;
+      padding:10px;
+      background: radial-gradient(ellipse at center, #00e67615 0%, #000 70%);
+      border-bottom:3px solid #00e676;
+    }
+
+    .logo { width:180px; max-width:90%; display:block; margin:0 auto; }
+
+    .container { padding:10px; }
+
+    input, button {
+      width:100%;
+      padding:10px;
+      margin:5px 0;
+      border-radius:8px;
+      border:none;
+      font-size:16px;
+      box-sizing:border-box;
+      transition: background 0.2s;
+    }
+
+    input { background:#1c1c1c; color:white; text-align:center; }
+
+    button { background:#00c853; color:white; font-weight:bold; cursor:pointer; }
+    button.danger { background:#b71c1c; }
+    button.gold { background:#f9a825; color:#000; }
+
+    .match {
+      border:none;
+      border-left:4px solid #00e676;
+      background:#111;
+      border-radius:8px;
+      padding:15px;
+      margin-bottom:12px;
+    }
+
+    .stage-label {
+      display:inline-block;
+      background:#00e67620;
+      color:#00e676;
+      border:1px solid #00e67650;
+      border-radius:20px;
+      padding:2px 10px;
+      font-size:11px;
+      text-transform:uppercase;
+      letter-spacing:1px;
+      margin-bottom:8px;
+    }
+
+    .players { display:flex; justify-content:space-between; align-items:center; }
+
+    .player {
+      width:30%;
+      font-size:18px;
+      font-weight:bold;
+      text-align:center;
+      font-family:'Arial Black', Arial;
+    }
+
+    .score { width:40%; text-align:center; font-size:22px; font-weight:bold; color:#555; }
+
+    .buttons { margin-top:10px; display:grid; grid-template-columns:repeat(2,1fr); gap:5px; }
+
+    .buttons button { background:#111; border:1px solid #00e676; color:white; transition: background 0.2s; }
+
+    .buttons button:nth-child(odd)  { border-color:#00e676; color:#00e676; }
+    .buttons button:nth-child(even) { border-color:#ff5252; color:#ff5252; }
+
+    .winnerHighlight {
+      color:#00e676;
+      background:#00e67615;
+      border-radius:6px;
+      padding:2px 6px;
+    }
+
+    .winnerText { text-align:center; margin-top:10px; color:#00e676; font-weight:bold; }
+
+    .undo-btn {
+      background:#333;
+      border:1px solid #888;
+      color:#ccc;
+      font-size:13px;
+      padding:6px;
+      margin-top:6px;
+    }
+
+    .section-title {
+      color:#00e676;
+      border-bottom:1px solid #333;
+      padding-bottom:4px;
+      margin-top:16px;
+    }
+
+    .league-history .match { border-color:#333; opacity:0.7; }
+    .league-history .stage-label { color:#555; }
+
+    .tableWrap {
+      position:sticky;
+      bottom:0;
+      background:#000;
+      border-top:3px solid #00e676;
+    }
+
+    table { width:100%; border-collapse:collapse; }
+
+    th { background:#111; color:#00e676; font-size:13px; padding:7px 5px; border:1px solid #333; }
+    td { padding:7px 5px; font-size:14px; border:1px solid #333; text-align:center; }
+
+    tr:nth-child(even) td { background:#0d0d0d; }
+    .leader { background:#1b5e20 !important; box-shadow:inset 0 0 8px #00e67640; }
+    .top4 { background:#0d2b1a; }
+
+    /* Hall of Fame */
+    .hof-wrap {
+      background:#000;
+      border:2px solid #f9a825;
+      border-radius:12px;
+      padding:12px;
+      margin-top:16px;
+    }
+
+    .hof-title {
+      color:#f9a825;
+      text-align:center;
+      font-size:16px;
+      font-weight:bold;
+      letter-spacing:2px;
+      text-transform:uppercase;
+      margin-bottom:10px;
+    }
+
+    .hof-wrap table { width:100%; border-collapse:collapse; }
+    .hof-wrap th { background:#1a1400; color:#f9a825; border-color:#3a2e00; font-size:12px; padding:6px 4px; }
+    .hof-wrap td { border-color:#2a2000; font-size:13px; padding:6px 4px; }
+    .hof-wrap tr:nth-child(even) td { background:#0d0a00; }
+    .hof-rank1 { background:#2a1f00 !important; box-shadow:inset 0 0 8px #f9a82540; }
+  </style>
+</head>
+
+<body>
+
+<div class="header">
+  <img src="logo.png" class="logo">
+</div>
+
+<div class="container">
+
+  <input id="newPlayer" placeholder="Add player" onkeydown="if(event.key==='Enter') addPlayer()">
+  <button onclick="addPlayer()">Add Player</button>
+
+  <h3 class="section-title">Create Tournament</h3>
+  <div id="playerSelect"></div>
+  <button onclick="createTournament()">Create Tournament</button>
+  <button class="danger" onclick="resetTournament()">Start New Tournament</button>
+
+  <h3 class="section-title">Matches</h3>
+  <div id="matches"></div>
+
+  <div id="hofSection"></div>
+
+</div>
+
+<div class="tableWrap">
+  <table id="table"></table>
+</div>
+
+<script>
+// ─── State ────────────────────────────────────────────────────────────────────
+let players        = [];
+let leagueMatches  = [];
+let activeMatches  = [];
+let knockoutStarted = false;
+let finalStarted    = false;
+let currentTournamentPlayers = [];
+let hallOfFame     = [];
+
+// ─── Persistence ──────────────────────────────────────────────────────────────
+function saveData() {
+  localStorage.setItem("psd", JSON.stringify({
+    players,
+    leagueMatches,
+    activeMatches,
+    knockoutStarted,
+    finalStarted,
+    currentTournamentPlayers,
+    hallOfFame
+  }));
+}
+
+function loadData() {
+  const raw = localStorage.getItem("psd");
+  if (!raw) return;
+  const d = JSON.parse(raw);
+
+  players                  = d.players                  || [];
+  leagueMatches            = d.leagueMatches            || [];
+  activeMatches            = d.activeMatches            || [];
+  knockoutStarted          = d.knockoutStarted          || false;
+  finalStarted             = d.finalStarted             || false;
+  currentTournamentPlayers = d.currentTournamentPlayers || [];
+  hallOfFame               = d.hallOfFame               || [];
+
+  update();
+}
+
+// ─── Hall of Fame ─────────────────────────────────────────────────────────────
+function findHofPlayer(name) {
+  let p = hallOfFame.find(p => p.name === name);
+  if (!p) {
+    p = { name, comps:0, wins:0, finals:0, semis:0, matchWins:0, matchLosses:0, points:0 };
+    hallOfFame.push(p);
+  }
+  return p;
+}
+
+function finaliseTournament() {
+  if (!confirm("Finalise this tournament and save results to the Hall of Fame?")) return;
+
+  const final = [...leagueMatches, ...activeMatches].find(m => m.stage === "Final" && m.done);
+  const semis = [...leagueMatches, ...activeMatches].filter(m => m.stage === "Semi Final" && m.done);
+  const champion = final ? final.winner : null;
+  const finalist = final ? (final.winner === final.p1 ? final.p2 : final.p1) : null;
+  const semifinalists = semis.map(m => m.winner === m.p1 ? m.p2 : m.p1);
+
+  currentTournamentPlayers.forEach(name => {
+    const h = findHofPlayer(name);
+    const p = findPlayer(name);
+    h.comps++;
+    h.matchWins   += p.wins;
+    h.matchLosses += p.losses;
+    if (name === champion)               { h.wins++;   h.points += 10; }
+    if (name === finalist)               {             h.points += 5;  h.finals++; }
+    if (semifinalists.includes(name))    {             h.points += 3;  h.semis++;  }
+    h.points += p.wins;
+  });
+
+  saveData();
+  renderHof();
+  alert("✅ Tournament saved to Hall of Fame!");
+}
+
+function renderHof() {
+  const section = document.getElementById("hofSection");
+  if (hallOfFame.length === 0) { section.innerHTML = ""; return; }
+
+  const sorted = [...hallOfFame].sort((a,b) => b.points - a.points || b.wins - a.wins);
+
+  let rows = "";
+  sorted.forEach((p, i) => {
+    const cls = i === 0 ? "hof-rank1" : "";
+    rows += `
+      <tr class="${cls}">
+        <td>${i === 0 ? "🏆" : i + 1}</td>
+        <td style="text-align:left;padding-left:6px">${p.name}</td>
+        <td>${p.comps}</td>
+        <td>${p.wins}</td>
+        <td>${p.finals}</td>
+        <td>${p.semis}</td>
+        <td>${p.matchWins}</td>
+        <td>${p.matchLosses}</td>
+        <td>${p.points}</td>
+      </tr>
+    `;
+  });
+
+  section.innerHTML = `
+    <div class="hof-wrap">
+      <div class="hof-title">🎯 Hall of Fame</div>
+      <table>
+        <tr>
+          <th>#</th><th style="text-align:left;padding-left:6px">Player</th>
+          <th>Comps</th><th>🏆</th><th>F</th><th>SF</th>
+          <th>W</th><th>L</th><th>Pts</th>
+        </tr>
+        ${rows}
+      </table>
+    </div>
+  `;
+}
+
+// ─── Original functions unchanged ─────────────────────────────────────────────
+function findPlayer(name) {
+  return players.find(p => p.name === name);
+}
+
+function addPlayer() {
+  const name = newPlayer.value.trim();
+  if (!name) return;
+  if (players.find(p => p.name === name)) {
+    alert("A player with that name already exists.");
+    return;
+  }
+  players.push({ name, played:0, wins:0, losses:0, legsFor:0, legsAgainst:0, points:0 });
+  newPlayer.value = "";
+  update();
+  saveData();
+}
+
+function resetTournament() {
+  if (!confirm("Reset everything and start a new tournament?")) return;
+  players.forEach(p => {
+    p.played = p.wins = p.losses = p.legsFor = p.legsAgainst = p.points = 0;
+  });
+  leagueMatches   = [];
+  activeMatches   = [];
+  knockoutStarted = false;
+  finalStarted    = false;
+  update();
+  saveData();
+}
+
+function createTournament() {
+  const checked = [...playerSelect.querySelectorAll("input:checked")]
+    .map(c => players[parseInt(c.value)].name);
+
+  if (checked.length < 2) { alert("Select at least 2 players."); return; }
+
+  currentTournamentPlayers = checked;
+
+  leagueMatches   = [];
+  activeMatches   = [];
+  knockoutStarted = false;
+  finalStarted    = false;
+
+  checked.forEach(name => {
+    const p = findPlayer(name);
+    p.played = p.wins = p.losses = p.legsFor = p.legsAgainst = p.points = 0;
+  });
+
+  for (let i = 0; i < checked.length; i++) {
+    for (let j = i + 1; j < checked.length; j++) {
+      activeMatches.push({
+        p1: checked[i], p2: checked[j],
+        done: false, stage: "League",
+        score: null, winner: null
+      });
+    }
+  }
+
+  update();
+  saveData();
+}
+
+function quickScore(i, s1, s2) {
+  const m = activeMatches[i];
+  const needed = m.stage === "Final" ? 3 : 2;
+  if (s1 !== needed && s2 !== needed) return;
+
+  const p1 = findPlayer(m.p1);
+  const p2 = findPlayer(m.p2);
+
+  p1.played++; p2.played++;
+  p1.legsFor  += s1; p1.legsAgainst += s2;
+  p2.legsFor  += s2; p2.legsAgainst += s1;
+
+  if (s1 > s2) {
+    p1.wins++; p1.points += 2;
+    p2.losses++;
+    m.winner = p1.name;
+  } else {
+    p2.wins++; p2.points += 2;
+    p1.losses++;
+    m.winner = p2.name;
+  }
+
+  m.done  = true;
+  m.score = `${s1}-${s2}`;
+
+  checkKnockout();
+  update();
+  saveData();
+
+  if (m.stage === "Final") {
+    setTimeout(() => alert("🏆 Champion: " + m.winner), 50);
+  }
+}
+
+function undoLast() {
+  let idx = -1;
+  for (let i = activeMatches.length - 1; i >= 0; i--) {
+    if (activeMatches[i].done) { idx = i; break; }
+  }
+  if (idx === -1) return;
+
+  const m  = activeMatches[idx];
+  const p1 = findPlayer(m.p1);
+  const p2 = findPlayer(m.p2);
+  const [s1, s2] = m.score.split("-").map(Number);
+
+  p1.played--; p2.played--;
+  p1.legsFor  -= s1; p1.legsAgainst -= s2;
+  p2.legsFor  -= s2; p2.legsAgainst -= s1;
+
+  if (s1 > s2) {
+    p1.wins--; p1.points -= 2; p2.losses--;
+  } else {
+    p2.wins--; p2.points -= 2; p1.losses--;
+  }
+
+  m.done   = false;
+  m.score  = null;
+  m.winner = null;
+
+  update();
+  saveData();
+}
+
+function checkKnockout() {
+  const allDone = activeMatches.every(m => m.done);
+  if (!allDone) return;
+
+  if (!knockoutStarted) {
+    leagueMatches = [...activeMatches];
+
+    const sorted = [...players].sort(sortPlayers);
+    const top4   = sorted.slice(0, 4).map(p => p.name);
+
+    activeMatches = [
+      { p1:top4[0], p2:top4[3], done:false, stage:"Semi Final", score:null, winner:null },
+      { p1:top4[1], p2:top4[2], done:false, stage:"Semi Final", score:null, winner:null }
+    ];
+
+    knockoutStarted = true;
+    return;
+  }
+
+  if (knockoutStarted && !finalStarted && activeMatches.length === 2) {
+    const w1 = activeMatches[0].winner;
+    const w2 = activeMatches[1].winner;
+
+    activeMatches = [
+      { p1:w1, p2:w2, done:false, stage:"Final", score:null, winner:null }
+    ];
+
+    finalStarted = true;
+  }
+}
+
+function sortPlayers(a, b) {
+  const dA = a.legsFor - a.legsAgainst;
+  const dB = b.legsFor - b.legsAgainst;
+  return (b.points - a.points) || (dB - dA) || (b.legsFor - a.legsFor);
+}
+
+function update() {
+  playerSelect.innerHTML = "";
+  players.forEach((p, i) => {
+    playerSelect.innerHTML += `<div><input type="checkbox" value="${i}"> ${p.name}</div>`;
+  });
+
+  renderMatches();
+  renderTable();
+  renderHof();
+}
+
+function renderMatches() {
+  matches.innerHTML = "";
+  activeMatches.forEach((m, i) => {
+    const isFinal = m.stage === "Final";
+    const div = document.createElement("div");
+    div.className = "match";
+
+    const scoreButtons = isFinal
+      ? `<button onclick="quickScore(${i},3,0)">3-0</button>
+         <button onclick="quickScore(${i},0,3)">0-3</button>
+         <button onclick="quickScore(${i},3,1)">3-1</button>
+         <button onclick="quickScore(${i},1,3)">1-3</button>
+         <button onclick="quickScore(${i},3,2)">3-2</button>
+         <button onclick="quickScore(${i},2,3)">2-3</button>`
+      : `<button onclick="quickScore(${i},2,0)">2-0</button>
+         <button onclick="quickScore(${i},0,2)">0-2</button>
+         <button onclick="quickScore(${i},2,1)">2-1</button>
+         <button onclick="quickScore(${i},1,2)">1-2</button>`;
+
+    div.innerHTML = `
+      <div class="stage-label">${m.stage}</div>
+      <div class="players">
+        <div class="player ${m.winner === m.p1 ? "winnerHighlight" : ""}">${m.p1}</div>
+        <div class="score">${m.done ? m.score : "VS"}</div>
+        <div class="player ${m.winner === m.p2 ? "winnerHighlight" : ""}">${m.p2}</div>
+      </div>
+      ${!m.done
+        ? `<div class="buttons">${scoreButtons}</div>`
+        : `<div class="winnerText">🏆 ${m.winner}</div>`
+      }
+    `;
+
+    matches.appendChild(div);
+  });
+
+  const hasCompleted = activeMatches.some(m => m.done);
+  if (hasCompleted) {
+    const btn = document.createElement("button");
+    btn.className = "undo-btn";
+    btn.textContent = "↩ Undo Last Result";
+    btn.onclick = undoLast;
+    matches.appendChild(btn);
+  }
+
+  // Show Finalise button only when the final is complete
+  const finalDone = activeMatches.some(m => m.stage === "Final" && m.done);
+  if (finalDone) {
+    const btn = document.createElement("button");
+    btn.className = "gold";
+    btn.textContent = "🏆 Finalise Tournament";
+    btn.onclick = finaliseTournament;
+    btn.style.marginTop = "10px";
+    matches.appendChild(btn);
+  }
+
+  if (leagueMatches.length > 0) {
+    const heading = document.createElement("h3");
+    heading.className = "section-title";
+    heading.textContent = "League Results";
+    matches.appendChild(heading);
+
+    const wrap = document.createElement("div");
+    wrap.className = "league-history";
+
+    leagueMatches.forEach(m => {
+      const div = document.createElement("div");
+      div.className = "match";
+      div.innerHTML = `
+        <div class="stage-label">${m.stage}</div>
+        <div class="players">
+          <div class="player ${m.winner === m.p1 ? "winnerHighlight" : ""}">${m.p1}</div>
+          <div class="score">${m.score}</div>
+          <div class="player ${m.winner === m.p2 ? "winnerHighlight" : ""}">${m.p2}</div>
+        </div>
+        <div class="winnerText">🏆 ${m.winner}</div>
+      `;
+      wrap.appendChild(div);
+    });
+
+    matches.appendChild(wrap);
+  }
+}
+
+function renderTable() {
+  const sorted = players
+    .filter(p => currentTournamentPlayers.includes(p.name))
+    .sort(sortPlayers);
+
+  let html = `
+    <tr>
+      <th>#</th><th>Player</th><th>P</th><th>W</th><th>L</th><th>+/-</th><th>Pts</th>
+    </tr>
+  `;
+
+  sorted.forEach((p, i) => {
+    const diff = p.legsFor - p.legsAgainst;
+    const cls  = i === 0 ? "leader" : i < 4 ? "top4" : "";
+    html += `
+      <tr class="${cls}">
+        <td>${i + 1}</td>
+        <td>${p.name}</td>
+        <td>${p.played}</td>
+        <td>${p.wins}</td>
+        <td>${p.losses}</td>
+        <td>${diff >= 0 ? "+" : ""}${diff}</td>
+        <td>${p.points}</td>
+      </tr>
+    `;
+  });
+
+  table.innerHTML = html;
+}
+
+loadData();
+</script>
+
+</body>
+</html>
