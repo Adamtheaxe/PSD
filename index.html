@@ -3,13 +3,10 @@
 <head>
   <title>PSD Darts</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
- <link rel="apple-touch-icon" href="icon.png">
-
+  <link rel="apple-touch-icon" href="icon.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
-
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
 
-</head>
   <style>
     body { background:#0a0a0a; color:white; font-family:Arial; margin:0; }
 
@@ -236,7 +233,7 @@ function finaliseTournament() {
   const semis = [...leagueMatches, ...activeMatches].filter(m => m.stage === "Semi Final" && m.done);
   const champion = final ? final.winner : null;
   const finalist = final ? (final.winner === final.p1 ? final.p2 : final.p1) : null;
-  const semifinalists = semis.map(m => m.winner === m.p1 ? m.p2 : m.p1);
+  const semifinalists = semis.flatMap(m => [m.p1, m.p2]);
 
   currentTournamentPlayers.forEach(name => {
     const h = findHofPlayer(name);
@@ -244,15 +241,22 @@ function finaliseTournament() {
     h.comps++;
     h.matchWins   += p.wins;
     h.matchLosses += p.losses;
-    if (name === champion)               { h.wins++;   h.points += 10; }
-    if (name === finalist)               {             h.points += 5;  h.finals++; }
-    if (semifinalists.includes(name))    {             h.points += 3;  h.semis++;  }
+    if (name === champion)            { h.wins++;   h.points += 10; }
+    if (name === finalist)            { h.finals++; h.points += 5;  }
+    if (semifinalists.includes(name)) { h.semis++;  h.points += 3;  }
     h.points += p.wins;
   });
 
   saveData();
   renderHof();
   alert("✅ Tournament saved to Hall of Fame!");
+}
+
+function resetHof() {
+  if (!confirm("Reset the Hall of Fame? This cannot be undone.")) return;
+  hallOfFame = [];
+  saveData();
+  renderHof();
 }
 
 function renderHof() {
@@ -290,6 +294,7 @@ function renderHof() {
         </tr>
         ${rows}
       </table>
+      <button class="danger" onclick="resetHof()" style="margin-top:10px">Reset Hall of Fame</button>
     </div>
   `;
 }
@@ -513,7 +518,6 @@ function renderMatches() {
     matches.appendChild(btn);
   }
 
-  // Show Finalise button only when the final is complete
   const finalDone = activeMatches.some(m => m.stage === "Final" && m.done);
   if (finalDone) {
     const btn = document.createElement("button");
