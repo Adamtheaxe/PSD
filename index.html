@@ -229,11 +229,17 @@ function findHofPlayer(name) {
 function finaliseTournament() {
   if (!confirm("Finalise this tournament and save results to the Hall of Fame?")) return;
 
-  const final = [...leagueMatches, ...activeMatches].find(m => m.stage === "Final" && m.done);
-  const semis = [...leagueMatches, ...activeMatches].filter(m => m.stage === "Semi Final" && m.done);
-  const champion = final ? final.winner : null;
-  const finalist = final ? (final.winner === final.p1 ? final.p2 : final.p1) : null;
-  const semifinalists = semis.map(m => {
+ const final = [...leagueMatches, ...activeMatches].find(m => m.stage === "Final" && m.done);
+
+const champion = final ? final.winner : null;
+const finalist = final ? (final.winner === final.p1 ? final.p2 : final.p1) : null;
+
+// Get completed semi finals
+const semis = [...leagueMatches, ...activeMatches]
+  .filter(m => m.stage === "Semi Final" && m.done);
+
+// Get LOSERS of semi finals
+const semifinalists = semis.map(m => {
   if (!m.winner) return null;
   return m.winner === m.p1 ? m.p2 : m.p1;
 }).filter(Boolean);
