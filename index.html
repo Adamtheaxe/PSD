@@ -233,7 +233,7 @@ function finaliseTournament() {
   const semis = [...leagueMatches, ...activeMatches].filter(m => m.stage === "Semi Final" && m.done);
   const champion = final ? final.winner : null;
   const finalist = final ? (final.winner === final.p1 ? final.p2 : final.p1) : null;
-  const semifinalists = semis.flatMap(m => [m.p1, m.p2]);
+  const semifinalists = semis.map(m => m.winner === m.p1 ? m.p2 : m.p1);
 
   currentTournamentPlayers.forEach(name => {
     const h = findHofPlayer(name);
