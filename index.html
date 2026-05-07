@@ -229,20 +229,11 @@ function findHofPlayer(name) {
 function finaliseTournament() {
   if (!confirm("Finalise this tournament and save results to the Hall of Fame?")) return;
 
- const final = [...leagueMatches, ...activeMatches].find(m => m.stage === "Final" && m.done);
-
-const champion = final ? final.winner : null;
-const finalist = final ? (final.winner === final.p1 ? final.p2 : final.p1) : null;
-
-// Get completed semi finals
-const semis = [...leagueMatches, ...activeMatches]
-  .filter(m => m.stage === "Semi Final" && m.done);
-
-// Get LOSERS of semi finals
-const semifinalists = semis.map(m => {
-  if (!m.winner) return null;
-  return m.winner === m.p1 ? m.p2 : m.p1;
-}).filter(Boolean);
+  const final = [...leagueMatches, ...activeMatches].find(m => m.stage === "Final" && m.done);
+  const semis = [...leagueMatches, ...activeMatches].filter(m => m.stage === "Semi Final" && m.done);
+  const champion = final ? final.winner : null;
+  const finalist = final ? (final.winner === final.p1 ? final.p2 : final.p1) : null;
+  const semifinalists = semis.flatMap(m => [m.p1, m.p2]);
 
   currentTournamentPlayers.forEach(name => {
     const h = findHofPlayer(name);
@@ -252,7 +243,15 @@ const semifinalists = semis.map(m => {
     h.matchLosses += p.losses;
     if (name === champion)            { h.wins++;   h.points += 10; }
     if (name === finalist)            { h.finals++; h.points += 5;  }
-    if (semifinalists.includes(name)) { h.semis++;  h.points += 3;  }
+   const lostInSemis =
+  semifinalists.includes(name) &&
+  name !== champion &&
+  name !== finalist;
+
+if (lostInSemis) {
+  h.semis++;
+  h.points += 3;
+}
     h.points += p.wins;
   });
 
@@ -436,42 +435,107 @@ function undoLast() {
 }
 
 function checkKnockout() {
-  const allDone = activeMatches.every(m => m.done);
-  if (!allDone) return;
 
+  const unfinished = activeMatches.filter(m => !m.done);
+
+  if (unfinished.length > 0) {
+
+    const allSemisDone =
+      knockoutStarted &&
+      !finalStarted &&
+      activeMatches.length === 2 &&
+      activeMatches.every(m => m.done);
+
+    if (!allSemisDone) return;
+  }
+
+  // LEAGUE COMPLETE → CREATE SEMIS
   if (!knockoutStarted) {
+
     leagueMatches = [...activeMatches];
 
     const sorted = [...players].sort(sortPlayers);
-    const top4   = sorted.slice(0, 4).map(p => p.name);
+    const top4 = sorted.slice(0, 4).map(p => p.name);
 
     activeMatches = [
-      { p1:top4[0], p2:top4[3], done:false, stage:"Semi Final", score:null, winner:null },
-      { p1:top4[1], p2:top4[2], done:false, stage:"Semi Final", score:null, winner:null }
+      {
+        p1: top4[0],
+        p2: top4[3],
+        done: false,
+        stage: "Semi Final",
+        score: null,
+        winner: null
+      },
+      {
+        p1: top4[1],
+        p2: top4[2],
+        done: false,
+        stage: "Semi Final",
+        score: null,
+        winner: null
+      }
     ];
 
     knockoutStarted = true;
+
+    update();
+    saveData();
     return;
   }
 
+  // SEMIS COMPLETE → CREATE FINAL
   if (knockoutStarted && !finalStarted && activeMatches.length === 2) {
-    const w1 = activeMatches[0].winner;
-    const w2 = activeMatches[1].winner;
 
-    activeMatches = [
-      { p1:w1, p2:w2, done:false, stage:"Final", score:null, winner:null }
-    ];
+    const semi1 = activeMatches[0];
+    const semi2 = activeMatches[1];
+
+    const w1 = semi1.winner;
+    const w2 = semi2.winner;
+
+    // KEEP semi finals for Hall Of Fame
+    activeMatches.push({
+      p1: w1,
+      p2: w2,
+      done: false,
+      stage: "Final",
+      score: null,
+      winner: null
+    });
 
     finalStarted = true;
+
+    update();
+    saveData();
+    return;
   }
 }
+
 
 function sortPlayers(a, b) {
   const dA = a.legsFor - a.legsAgainst;
   const dB = b.legsFor - b.legsAgainst;
   return (b.points - a.points) || (dB - dA) || (b.legsFor - a.legsFor);
 }
+if (knockoutStarted && !finalStarted && activeMatches.length === 2) {
 
+  const semi1 = activeMatches[0];
+  const semi2 = activeMatches[1];
+
+  const w1 = semi1.winner;
+  const w2 = semi2.winner;
+
+  // KEEP semi finals
+  activeMatches.push({
+    p1: w1,
+    p2: w2,
+    done: false,
+    stage: "Final",
+    score: null,
+    winner: null
+  });
+
+  finalStarted = true;
+}
 function update() {
   playerSelect.innerHTML = "";
   players.forEach((p, i) => {
@@ -600,3 +664,6 @@ loadData();
 
 </body>
 </html>
+
+
+
